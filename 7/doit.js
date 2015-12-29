@@ -1,66 +1,75 @@
 var fs = require('fs');
-var SIZE = 1000;
 fs.readFile('input.txt', 'utf8', function(err, data) {
     if (err) throw err;
-    var lights = new Array(SIZE);
-    for (var x = 0; x < SIZE; x++) {
-        lights[x] = new Array(SIZE);
-        for (var y = 0; y < SIZE; y++) {
-            lights[x][y] = 0;
-        }
-    }
+    var wires = { };
     
     data.split('\n').forEach((line) => {
-        processLine(line, lights);
+        processLine(line, wires);
     });
-    //printLights(lights);
-    //processLine('turn on 0,0 through 9,9', lights);
-    //printLights(lights);
-
-    var totalLightsOn = 0;
-    for (var x = 0; x < SIZE; x++) {
-        for (var y = 0; y < SIZE; y++) {
-            if (lights[x][y]) totalLightsOn++;
-        }
-    }
-    console.log(totalLightsOn);
-    console.log(lights.reduce((current, item) => { 
-        return current + item.reduce((current, item) => {
-            return current + item;
-        });
-        }, 0), 0);
+    
+    var originalWires = Object.assign({}, wires);
+    
+    var a = computeValue(wires, 'a');
+    
+    console.log('a -> ' + a);
+    
+    wires = Object.assign({}, originalWires, {b : a});
+    
+    var a = computeValue(wires, 'a');
+    
+    console.log('a -> ' + a);
+    
 });
 
-function printLights(lights) {
-    console.log('----------');
-    for (var x = 0; x < SIZE; x++) {
-        console.log(lights[x].reduce((current, item) => {
-            return current + (item ? '*' : '.');
-        }, ''));
-    }
-}
-
-function processLine(line, lights) {
-    var commandRegex = new RegExp("(.*) ([0-9,]+) through ([0-9,]+)");
-    var result = commandRegex.exec(line);
-    var command = result[1];
-    var startArr = result[2].split(',');
-    var endArr = result[3].split(',');
-    var action = (lights, x, y) => { };
-    if (command == 'toggle') { action = toggle; }
-    else if (command == 'turn on') { action = turnOn; }
-    else if (command == 'turn off') { action = turnOff; }
-    var startX = Math.min(startArr[0], endArr[0]);
-    var endX = Math.max(startArr[0], endArr[0]);
-    var startY = Math.min(startArr[1], endArr[1]);
-    var endY = Math.max(startArr[1], endArr[1]);
-    for (var x = startX; x <= endX; x++) {
-        for (var y = startY; y <= endY; y++) {
-            action(lights, x, y);
+function computeValue(wires, wire) {
+    var value = wires[wire];
+    if (Number.isInteger(value) || value.match(/^[0-9]+$/)) {
+        return Number.parseInt(value);
+    } else if (value.match(/^[a-z]+$/)) {
+        return computeValue(wires, value);
+    } else {
+        var lhs, rhs, op;
+        var parts = /([0-9a-z]+)?\s?([A-Z]+) ([0-9a-z]+)/.exec(value);
+        console.log(parts);
+        if (parts[1]) {
+            if (parts[1].match(/^[0-9]+$/)) {
+                lhs = Number.parseInt(parts[1]);
+            } else {
+                lhs = computeValue(wires, parts[1]);
+            }
         }
+        op = parts[2];
+        if (parts[3].match(/^[0-9]+$/)) {
+            rhs = Number.parseInt(parts[3]);
+        } else {
+            rhs = computeValue(wires, parts[3]);
+        }
+        
+        wires[wire] = executeOp(lhs, op, rhs);
+        return wires[wire];
     }
 }
 
-function turnOn(lights, x, y) { lights[x][y] = lights[x][y]+1; }
-function turnOff(lights, x, y) { lights[x][y] = lights[x][y] > 0 ? lights[x][y]-1 : 0 }
-function toggle(lights, x, y) { lights[x][y] = lights[x][y]+2; }
+function executeOp(lhs, op, rhs) {
+    switch (op) {
+        case 'NOT':
+            return ~ rhs;
+        case 'AND':
+            return lhs & rhs;
+        case 'OR':
+            return lhs | rhs;
+        case 'XOR':
+            return lhs ^ rhs;
+        case 'LSHIFT':
+            return lhs << rhs;
+        case 'RSHIFT':
+            return lhs >> rhs;
+        default:
+            console.log('unrecognized op');
+    }
+}
+
+function processLine(line, wires) {
+    var parts = line.split('->').map(item => item.trim());
+    wires[parts[1]] = parts[0];
+}
