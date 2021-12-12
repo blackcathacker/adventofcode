@@ -1,71 +1,71 @@
 const { readByLine } = require('../util');
 
+function createPoint(p) {
+    const coords = p.split(',')
+    return { x: Number(coords[0]), y: Number(coords[1]) }
+}
+
+// distance(A, C) + distance(B, C) == distance(A, B)
+/* function distance(p1, p2) {
+    return (
+        Math.sqrt(
+            Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2)
+        )
+    )
+}
+
+function onLine(x, y, l) {
+    return distance(l.start, { x, y }) + distance(l.end, { x, y }) == distance(l.start, l.end)
+}*/
+
+function onLine(x, y, l) {
+    return ((x >= l.start.x && x <= l.end.x) || (x <= l.start.x && x >= l.end.x)) &&
+        ((y >= l.start.y && y <= l.end.y) || (y <= l.start.y && y >= l.end.y))
+}
+
 async function runFirst() {
-    const { plays, boards, numbers } = await playGames()
-    console.log(boards)
-    // console.log(JSON.stringify(plays, null, 2))
-    const winningRoundIdx = plays.findIndex(p => p.some(boardWon))
-    const winningBoardIdx = plays[winningRoundIdx].findIndex(boardWon)
-    const winningBoard = boards[winningBoardIdx]
-    const marks = plays[winningRoundIdx][winningBoardIdx]
-    const boardScore = winningBoard.reduce((acc, r, x) => acc + r.reduce((rowSum, n, y) => marks[x][y] ? rowSum : rowSum + Number(n), 0), 0)
-    const winningNumber = Number(numbers[winningRoundIdx])
-    console.log({ winningBoard: boards[winningBoardIdx], marks, winningNumber, boardScore, score: boardScore * winningNumber, winningRoundIdx, winningBoardIdx })    
-}
-
-async function playGames() {
     const input = (await readByLine(`${__dirname}/input.txt`))
-    const numbers = input[0].split(',')
-    const boardInput = input.slice(2).map(l => l.trim())
-    const { boards } = boardInput.reduce(({ boards, current }, l) => {
-        if (l === '') {
-            current.__id = boards.length
-            return { boards: [...boards, current], current: [] }
-        }
-        return { boards, current: [...current, l.split(/\s+/)] }
-    }, { boards: [], current: []})
-    const markedBoards = boards.map(board => {
-        const result = board.map(r => r.map(s => false))
-        result.__id = board.__id
-        return result
-    })
-    const plays = [markedBoards]
-    for (let i = 0; i < numbers.length; i++) {
-        lastBoards = plays[i]
-        // console.log(lastBoards)
-        plays[i + 1] = lastBoards.map((marks, idx) => playBoard(boards[idx], marks, numbers[i]))
-    }
-    return { numbers, boards, plays: plays.slice(1) }
+        .map(l => l.trim())
+        .map(l => l.split(' -> '))
+        .map(l => l.map(createPoint))
+        .map(l => ({ start: l[0], end: l[1] }))
+        .filter(l => l.start.x === l.end.x || l.start.y === l.end.y)
+        //.filter((_, idx) => idx === 0)
+        .reduce(
+            (map, line) => map.map((l, y) => l.map((c, x) => onLine(x, y, line) ? c + 1 : c)),
+            Array.from(Array(1000)).map(_ => Array.from(Array(1000)).map(() => 0)))
+    // console.log(input.map(l => l.join('')).join('\n'))
+    const count = input.reduce((acc, l) =>
+        acc + l.reduce((acc, c) => c > 1 ? acc + 1 : acc, 0), 0)
+    console.log(count)
+    
 }
-
-function playBoard(board, marks, num) {
-    const updated = board.map((r, x) => r.map((c, y) => c === num ? true : marks[x][y]))
-    updated.__id = board.__id
-    // console.log({ board, marks, updated, num })
-    return updated
-}
-
-function boardWon(markedBoard) {
-    const lines = [...markedBoard, ...markedBoard[0].map((val, index) => markedBoard.map(row => row[index]))]
-    // console.log(lines)
-    return lines.some(l => l.every(i => i))
-}
-
 
 async function runSecond() {
-    const { plays, boards, numbers } = await playGames()
-    const { lastBoard, lastRound } = plays.reduce(({ alreadyWon, lastBoard, lastRound }, play, idx) => {
-        const newlyWonBoards = play.filter(board => !alreadyWon.includes(board.__id)).filter(boardWon)
-        if (newlyWonBoards.length > 0) {
-            return { alreadyWon: [...alreadyWon, ...newlyWonBoards.map(board => board.__id)], lastBoard: newlyWonBoards[0], lastRound: idx }
-        } else return { alreadyWon, lastBoard, lastRound }
-    }, { alreadyWon: [] })
-    const marks = lastBoard
-    const winningBoard = boards[lastBoard.__id]
-    const boardScore = winningBoard.reduce((acc, r, x) => acc + r.reduce((rowSum, n, y) => marks[x][y] ? rowSum : rowSum + Number(n), 0), 0)
-    const winningNumber = Number(numbers[lastRound])
-    console.log({ winningBoard, marks, winningNumber, boardScore, score: boardScore * winningNumber, lastRound })    
-
+    const map = Array.from(Array(1000)).map(_ => Array.from(Array(1000)).map(() => 0))
+    const input = (await readByLine(`${__dirname}/input.txt`))
+        .map(l => l.trim())
+        .map(l => l.split(' -> '))
+        .map(l => l.map(createPoint))
+        .map(l => ({ start: l[0], end: l[1] }))
+        //.filter(l => l.start.x === l.end.x || l.start.y === l.end.y)
+        //.filter((_, idx) => idx === 0)
+    input.forEach(l => {
+        let x = l.start.x
+        let y = l.start.y
+        // console.log(l)
+        map[y][x] = map[y][x] + 1
+        while (x !== l.end.x || y !== l.end.y) {
+            //console.log({ x, y, l })
+            if (x !== l.end.x) x < l.end.x ? x++ : x--
+            if (y !== l.end.y) y < l.end.y ? y++ : y--
+            map[y][x] = map[y][x] + 1
+        }
+    })
+    //console.log(map.map(l => l.join('')).join('\n'))
+    const count = map.reduce((acc, l) =>
+        acc + l.reduce((acc, c) => c > 1 ? acc + 1 : acc, 0), 0)
+    console.log(count)
 }
 
 
